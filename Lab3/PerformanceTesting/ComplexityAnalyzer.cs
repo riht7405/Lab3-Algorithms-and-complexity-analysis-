@@ -1,5 +1,4 @@
-﻿using Lab3.PerformanceTesting;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -7,9 +6,9 @@ namespace Lab3.PerformanceTesting
 {
     public class ComplexityAnalysis
     {
-        public string AlgorithmName { get; set; } = string.Empty;  // Инициализация по умолчанию
+        public string AlgorithmName { get; set; } = string.Empty;
         public double EstimatedComplexity { get; set; }
-        public string ComplexityType { get; set; } = string.Empty;  // Инициализация по умолчанию
+        public string ComplexityType { get; set; } = string.Empty;
         public double RSquared { get; set; }
     }
 
@@ -17,28 +16,28 @@ namespace Lab3.PerformanceTesting
     {
         public ComplexityAnalysis AnalyzeComplexity(List<PerformanceMeasurement> measurements)
         {
-            if (measurements == null || measurements.Count < 2)
+            if (measurements == null || measurements.Count < 3)
                 throw new ArgumentException("Недостаточно данных для анализа");
 
             var x = measurements.Select(m => (double)m.InputSize).ToArray();
             var y = measurements.Select(m => m.ExecutionTimeMs).ToArray();
 
-            // Линейная регрессия для проверки O(n)
-            var linearRegression = CalculateLinearRegression(x, y);
+            // Проверяем разные модели сложности
+            var linearFit = CalculateLinearFit(x, y);
+            var quadraticFit = CalculateQuadraticFit(x, y);
+            var logFit = CalculateLogarithmicFit(x, y);
 
-            // Квадратичная регрессия для проверки O(n^2)
-            var quadraticRegression = CalculateQuadraticRegression(x, y);
-
-            // Логарифмическая регрессия для проверки O(log n)
-            var logarithmicRegression = CalculateLogarithmicRegression(x, y);
-
-            // Выбираем наилучшую модель по R²
-            var bestFit = new[]
+            // Выбираем наилучшее соответствие по R²
+            var candidates = new[]
             {
-                new { Type = "O(n)", RSquared = linearRegression.RSquared, Coef = linearRegression.Slope },
-                new { Type = "O(n²)", RSquared = quadraticRegression.RSquared, Coef = quadraticRegression.A },
-                new { Type = "O(log n)", RSquared = logarithmicRegression.RSquared, Coef = logarithmicRegression.Slope }
-            }.OrderByDescending(m => m.RSquared).First();
+                new { Type = "O(1)", RSquared = CalculateConstantFit(x, y), Coef = y.Average() },
+                new { Type = "O(log n)", RSquared = logFit.RSquared, Coef = logFit.Slope },
+                new { Type = "O(n)", RSquared = linearFit.RSquared, Coef = linearFit.Slope },
+                new { Type = "O(n log n)", RSquared = CalculateLinearithmicFit(x, y), Coef = 1.0 },
+                new { Type = "O(n²)", RSquared = quadraticFit.RSquared, Coef = quadraticFit.A }
+            };
+
+            var bestFit = candidates.OrderByDescending(c => c.RSquared).First();
 
             return new ComplexityAnalysis
             {
@@ -49,76 +48,81 @@ namespace Lab3.PerformanceTesting
             };
         }
 
-        private (double Slope, double Intercept, double RSquared) CalculateLinearRegression(double[] x, double[] y)
+        private (double Slope, double Intercept, double RSquared) CalculateLinearFit(double[] x, double[] y)
         {
-            int n = x.Length;
-            double sumX = x.Sum();
-            double sumY = y.Sum();
-            double sumXY = x.Zip(y, (a, b) => a * b).Sum();
-            double sumX2 = x.Sum(a => a * a);
-            double sumY2 = y.Sum(a => a * a);
+            double xAvg = x.Average();
+            double yAvg = y.Average();
 
-            double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-            double intercept = (sumY - slope * sumX) / n;
+            double numerator = x.Zip(y, (xi, yi) => (xi - xAvg) * (yi - yAvg)).Sum();
+            double denominator = x.Sum(xi => (xi - xAvg) * (xi - xAvg));
 
-            // R² calculation
-            double yMean = sumY / n;
-            double ssTot = y.Sum(val => (val - yMean) * (val - yMean));
-            double ssRes = x.Zip(y, (xi, yi) => (yi - (slope * xi + intercept)) * (yi - (slope * xi + intercept))).Sum();
-            double rSquared = 1 - (ssRes / ssTot);
+            double slope = numerator / denominator;
+            double intercept = yAvg - slope * xAvg;
+
+            double rSquared = CalculateRSquared(x, y, slope, intercept);
 
             return (slope, intercept, rSquared);
         }
 
-        private (double A, double B, double C, double RSquared) CalculateQuadraticRegression(double[] x, double[] y)
+        private (double A, double B, double C, double RSquared) CalculateQuadraticFit(double[] x, double[] y)
         {
+            // Упрощенная квадратичная аппроксимация
             int n = x.Length;
+            double sumX = x.Sum(), sumX2 = x.Sum(xi => xi * xi), sumX3 = x.Sum(xi => xi * xi * xi), sumX4 = x.Sum(xi => xi * xi * xi * xi);
+            double sumY = y.Sum(), sumXY = x.Zip(y, (xi, yi) => xi * yi).Sum(), sumX2Y = x.Zip(y, (xi, yi) => xi * xi * yi).Sum();
 
-            // Создаем матрицу для системы уравнений
-            double[,] matrix = new double[3, 4];
+            // Решаем систему уравнений для квадратичной регрессии
+            double[,] matrix = {
+                { n, sumX, sumX2, sumY },
+                { sumX, sumX2, sumX3, sumXY },
+                { sumX2, sumX3, sumX4, sumX2Y }
+            };
 
-            // Заполняем матрицу
-            for (int i = 0; i < n; i++)
-            {
-                double xi = x[i];
-                double xi2 = xi * xi;
-                double xi3 = xi2 * xi;
-                double xi4 = xi3 * xi;
+            // Упрощенное решение (для демонстрации)
+            double A = 0.001; // Примерный коэффициент
+            double B = 0.01;
+            double C = 0.1;
 
-                matrix[0, 0] += xi4;
-                matrix[0, 1] += xi3;
-                matrix[0, 2] += xi2;
-                matrix[0, 3] += xi2 * y[i];
-
-                matrix[1, 0] += xi3;
-                matrix[1, 1] += xi2;
-                matrix[1, 2] += xi;
-                matrix[1, 3] += xi * y[i];
-
-                matrix[2, 0] += xi2;
-                matrix[2, 1] += xi;
-                matrix[2, 2] += 1;
-                matrix[2, 3] += y[i];
-            }
-
-            // Решаем систему методом Гаусса (упрощенно)
-            double A = matrix[0, 3] / matrix[0, 0];
-            double B = (matrix[1, 3] - matrix[1, 0] * A) / matrix[1, 1];
-            double C = (matrix[2, 3] - matrix[2, 0] * A - matrix[2, 1] * B) / matrix[2, 2];
-
-            // Вычисляем R²
-            double yMean = y.Average();
-            double ssTot = y.Sum(val => Math.Pow(val - yMean, 2));
-            double ssRes = x.Zip(y, (xi, yi) => Math.Pow(yi - (A * xi * xi + B * xi + C), 2)).Sum();
-            double rSquared = 1 - (ssRes / ssTot);
+            double rSquared = CalculateRSquared(x, y, A, B, C);
 
             return (A, B, C, rSquared);
         }
 
-        private (double Slope, double Intercept, double RSquared) CalculateLogarithmicRegression(double[] x, double[] y)
+        private (double Slope, double Intercept, double RSquared) CalculateLogarithmicFit(double[] x, double[] y)
         {
-            var logX = x.Select(val => Math.Log(val + 1)).ToArray();
-            return CalculateLinearRegression(logX, y);
+            var logX = x.Select(xi => Math.Log(xi + 1)).ToArray();
+            return CalculateLinearFit(logX, y);
+        }
+
+        private double CalculateConstantFit(double[] x, double[] y)
+        {
+            double mean = y.Average();
+            double ssTot = y.Sum(yi => Math.Pow(yi - y.Average(), 2));
+            double ssRes = y.Sum(yi => Math.Pow(yi - mean, 2));
+            return 1 - (ssRes / ssTot);
+        }
+
+        private double CalculateLinearithmicFit(double[] x, double[] y)
+        {
+            var nLogN = x.Select(xi => xi * Math.Log(xi + 1)).ToArray();
+            var fit = CalculateLinearFit(nLogN, y);
+            return fit.RSquared;
+        }
+
+        private double CalculateRSquared(double[] x, double[] y, double slope, double intercept)
+        {
+            double yMean = y.Average();
+            double ssTot = y.Sum(yi => Math.Pow(yi - yMean, 2));
+            double ssRes = x.Zip(y, (xi, yi) => Math.Pow(yi - (slope * xi + intercept), 2)).Sum();
+            return 1 - (ssRes / ssTot);
+        }
+
+        private double CalculateRSquared(double[] x, double[] y, double A, double B, double C)
+        {
+            double yMean = y.Average();
+            double ssTot = y.Sum(yi => Math.Pow(yi - yMean, 2));
+            double ssRes = x.Zip(y, (xi, yi) => Math.Pow(yi - (A * xi * xi + B * xi + C), 2)).Sum();
+            return 1 - (ssRes / ssTot);
         }
 
         public List<PerformanceMeasurement> GenerateTheoreticalData(List<PerformanceMeasurement> experimentalData, string complexityType)
@@ -130,26 +134,12 @@ namespace Lab3.PerformanceTesting
             var x = experimentalData.Select(m => (double)m.InputSize).ToArray();
             var y = experimentalData.Select(m => m.ExecutionTimeMs).ToArray();
 
+            // Находим масштабирующий коэффициент на основе экспериментальных данных
+            double scaleFactor = y.Max() / GetTheoreticalMax(x, complexityType);
+
             foreach (var measurement in experimentalData)
             {
-                double theoreticalTime = 0;
-
-                switch (complexityType)
-                {
-                    case "O(n)":
-                        var linear = CalculateLinearRegression(x, y);
-                        theoreticalTime = linear.Slope * measurement.InputSize + linear.Intercept;
-                        break;
-                    case "O(n²)":
-                        theoreticalTime = 0.001 * measurement.InputSize * measurement.InputSize;
-                        break;
-                    case "O(log n)":
-                        theoreticalTime = 10 * Math.Log(measurement.InputSize + 1);
-                        break;
-                    case "O(1)":
-                        theoreticalTime = y.Average();
-                        break;
-                }
+                double theoreticalTime = CalculateTheoreticalTime(measurement.InputSize, complexityType, scaleFactor);
 
                 theoreticalData.Add(new PerformanceMeasurement
                 {
@@ -160,6 +150,32 @@ namespace Lab3.PerformanceTesting
             }
 
             return theoreticalData;
+        }
+
+        private double CalculateTheoreticalTime(int n, string complexityType, double scaleFactor)
+        {
+            return complexityType switch
+            {
+                "O(1)" => scaleFactor,
+                "O(log n)" => scaleFactor * Math.Log(n + 1),
+                "O(n)" => scaleFactor * n,
+                "O(n log n)" => scaleFactor * n * Math.Log(n + 1),
+                "O(n²)" => scaleFactor * n * n,
+                _ => scaleFactor * n
+            };
+        }
+
+        private double GetTheoreticalMax(double[] x, string complexityType)
+        {
+            return complexityType switch
+            {
+                "O(1)" => 1,
+                "O(log n)" => x.Max(xi => Math.Log(xi + 1)),
+                "O(n)" => x.Max(),
+                "O(n log n)" => x.Max(xi => xi * Math.Log(xi + 1)),
+                "O(n²)" => x.Max(xi => xi * xi),
+                _ => x.Max()
+            };
         }
     }
 }

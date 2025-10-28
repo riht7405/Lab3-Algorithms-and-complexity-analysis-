@@ -9,24 +9,14 @@ namespace Lab3.Services
     public class InfixToPostfixConverter
     {
         private readonly Dictionary<string, int> _precedence;
-        private readonly Dictionary<string, string> _associativity;
 
         public InfixToPostfixConverter()
         {
             _precedence = new Dictionary<string, int>
             {
                 {"+", 1}, {"-", 1},
-                {"*", 2}, {"/", 2}, {":", 2},
-                {"^", 3},
-                {"ln", 4}, {"cos", 4}, {"sin", 4}, {"sqrt", 4}
-            };
-
-            _associativity = new Dictionary<string, string>
-            {
-                {"+", "L"}, {"-", "L"},
-                {"*", "L"}, {"/", "L"}, {":", "L"},
-                {"^", "R"},
-                {"ln", "R"}, {"cos", "R"}, {"sin", "R"}, {"sqrt", "R"}
+                {"*", 2}, {"/", 2},
+                {"^", 3}
             };
         }
 
@@ -42,10 +32,6 @@ namespace Lab3.Services
                 if (IsNumber(token))
                 {
                     output.Add(token);
-                }
-                else if (IsFunction(token))
-                {
-                    stack.Push(token);
                 }
                 else if (IsOperator(token))
                 {
@@ -71,12 +57,6 @@ namespace Lab3.Services
                         throw new ArgumentException("Несбалансированные скобки");
 
                     stack.Pop(); // Убираем "("
-
-                    // Если на вершине стека функция, добавляем её в вывод
-                    if (!stack.IsEmpty() && IsFunction(stack.Top()))
-                    {
-                        output.Add(stack.Pop());
-                    }
                 }
                 else
                 {
@@ -84,7 +64,6 @@ namespace Lab3.Services
                 }
             }
 
-            // Выталкиваем оставшиеся операторы из стека
             while (!stack.IsEmpty())
             {
                 if (stack.Top() == "(")
@@ -98,7 +77,6 @@ namespace Lab3.Services
 
         private string[] Tokenize(string expression)
         {
-            // Добавляем пробелы вокруг операторов и скобок, затем разбиваем
             return expression
                 .Replace("(", " ( ")
                 .Replace(")", " ) ")
@@ -106,7 +84,6 @@ namespace Lab3.Services
                 .Replace("-", " - ")
                 .Replace("*", " * ")
                 .Replace("/", " / ")
-                .Replace(":", " : ")
                 .Replace("^", " ^ ")
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries);
         }
@@ -121,25 +98,12 @@ namespace Lab3.Services
             return _precedence.ContainsKey(token);
         }
 
-        private bool IsFunction(string token)
-        {
-            return token == "ln" || token == "cos" || token == "sin" || token == "sqrt";
-        }
-
         private bool HasHigherPrecedence(string operator1, string operator2)
         {
             if (!_precedence.ContainsKey(operator1) || !_precedence.ContainsKey(operator2))
                 return false;
 
-            int prec1 = _precedence[operator1];
-            int prec2 = _precedence[operator2];
-
-            if (prec1 > prec2)
-                return true;
-            if (prec1 == prec2 && _associativity[operator2] == "L")
-                return true;
-
-            return false;
+            return _precedence[operator1] >= _precedence[operator2];
         }
     }
 }

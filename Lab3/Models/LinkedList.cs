@@ -1,35 +1,36 @@
-﻿using Lab3.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace Lab3.Models
+namespace Lab3.Structures
 {
     public class LinkedList<T>
     {
-        private Node<T>? _head;  // Добавлен nullable
+        private Node<T> _head;
+        private int _count;
 
         public void PushFront(T data)
         {
             Node<T> newNode = new Node<T>(data);
             newNode.Next = _head;
             _head = newNode;
+            _count++;
         }
 
         public T PopFront()
         {
             if (_head == null)
-                throw new InvalidOperationException("List is empty");
+                throw new InvalidOperationException("Список пуст");
 
             T data = _head.Data;
             _head = _head.Next;
+            _count--;
             return data;
         }
 
         public T Front()
         {
             if (_head == null)
-                throw new InvalidOperationException("List is empty");
-
+                throw new InvalidOperationException("Список пуст");
             return _head.Data;
         }
 
@@ -40,7 +41,7 @@ namespace Lab3.Models
 
         public void Print()
         {
-            Node<T>? current = _head;
+            Node<T> current = _head;
             List<string> elements = new List<string>();
 
             while (current != null)
@@ -49,22 +50,21 @@ namespace Lab3.Models
                 current = current.Next;
             }
 
-            Console.WriteLine(string.Join(" ", elements));
+            Console.WriteLine("Стек: " + string.Join(" → ", elements));
         }
 
-        // Для отладки - получить все элементы как список
-        public List<T> ToList()
+        public int Count => _count;
+    }
+
+    public class Node<T>
+    {
+        public T Data { get; set; }
+        public Node<T> Next { get; set; }
+
+        public Node(T data)
         {
-            List<T> result = new List<T>();
-            Node<T>? current = _head;
-
-            while (current != null)
-            {
-                result.Add(current.Data);
-                current = current.Next;
-            }
-
-            return result;
+            Data = data;
+            Next = null;
         }
     }
 }

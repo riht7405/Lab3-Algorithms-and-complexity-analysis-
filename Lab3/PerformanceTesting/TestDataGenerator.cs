@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Lab3.PerformanceTesting
 {
@@ -18,148 +17,187 @@ namespace Lab3.PerformanceTesting
         {
             var expressions = new List<string>();
 
-            // Гарантируем, что размеры корректны
-            minLength = Math.Max(minLength, 3); // Минимум 3 токена для валидного выражения
-            maxLength = Math.Min(maxLength, 1000); // Ограничиваем максимальный размер
-
-            for (int length = minLength; length <= maxLength; length += step)
+            for (int size = minLength; size <= maxLength; size += step)
             {
+                // Для постфиксной записи количество токенов должно быть нечетным
+                int actualSize = (size % 2 == 0) ? size + 1 : size;
+
                 for (int i = 0; i < expressionsPerStep; i++)
                 {
-                    // Генерируем гарантированно корректное выражение
-                    expressions.Add(GenerateValidPostfixExpression(length));
+                    string expression = GenerateGuaranteedValidPostfix(actualSize);
+                    if (IsValidPostfixExpression(expression))
+                    {
+                        expressions.Add(expression);
+                    }
+                    else
+                    {
+                        // Если выражение невалидно, создаем простое гарантированно рабочее выражение
+                        expressions.Add(CreateSimpleValidExpression(actualSize));
+                    }
                 }
-
-                // Ограничиваем общее количество выражений
-                if (expressions.Count >= 15)
-                    break;
             }
 
             return expressions;
         }
 
-        private string GenerateValidPostfixExpression(int tokenCount)
+        private string GenerateGuaranteedValidPostfix(int tokenCount)
         {
-            // Гарантируем нечетное количество токенов для корректного выражения
-            if (tokenCount % 2 == 0) tokenCount++;
+            if (tokenCount < 3) tokenCount = 3;
 
-            var tokens = new List<string>();
-            int numberCount = 0;
-            int operatorCount = 0;
+            // ГАРАНТИРОВАННО КОРРЕКТНЫЙ АЛГОРИТМ ГЕНЕРАЦИИ
+            // Для постфиксной записи: numbers = operators + 1
+            // total_tokens = numbers + operators = 2 * operators + 1
+            int operatorCount = (tokenCount - 1) / 2;
+            int numberCount = operatorCount + 1;
 
-            // Алгоритм, гарантирующий корректность постфиксной записи
-            for (int i = 0; i < tokenCount; i++)
+            // Проверяем и корректируем математику
+            while (numberCount + operatorCount != tokenCount)
             {
-                // Всегда можем добавить число, если нужно больше чисел чем операторов
-                bool canAddNumber = numberCount <= operatorCount;
-                bool canAddOperator = numberCount >= operatorCount + 2;
-
-                if (canAddNumber && (!canAddOperator || _random.NextDouble() < 0.6))
+                if (numberCount + operatorCount > tokenCount)
                 {
-                    tokens.Add(GenerateSafeNumber());
-                    numberCount++;
-                }
-                else if (canAddOperator)
-                {
-                    tokens.Add(GenerateSafeOperator());
-                    operatorCount++;
+                    operatorCount--;
+                    numberCount = operatorCount + 1;
                 }
                 else
                 {
-                    // Если нельзя добавить оператор, добавляем число
-                    tokens.Add(GenerateSafeNumber());
-                    numberCount++;
+                    operatorCount++;
+                    numberCount = operatorCount + 1;
                 }
             }
 
-            // Гарантируем, что выражение заканчивается оператором
-            while (operatorCount < numberCount - 1)
+            var tokens = new List<string>();
+
+            // 1. Добавляем ВСЕ числа сначала
+            for (int i = 0; i < numberCount; i++)
             {
-                tokens.Add(GenerateSafeOperator());
-                operatorCount++;
+                // Используем безопасные числа (1-50 чтобы избежать переполнения)
+                tokens.Add(_random.Next(1, 51).ToString());
+            }
+
+            // 2. Добавляем ВСЕ операторы после чисел
+            string[] safeOperators = GetSafeOperatorsForSize(tokenCount);
+            for (int i = 0; i < operatorCount; i++)
+            {
+                tokens.Add(safeOperators[_random.Next(safeOperators.Length)]);
             }
 
             return string.Join(" ", tokens);
         }
 
-        private string GenerateSafeNumber()
+        private string[] GetSafeOperatorsForSize(int size)
         {
-            // Генерируем только положительные числа
-            return _random.Next(1, 100).ToString();
+            // Для очень больших выражений используем ТОЛЬКО безопасные операторы
+            if (size > 1000)
+            {
+                return new[] { "+", "*" }; // Только сложение и умножение
+            }
+            else if (size > 100)
+            {
+                return new[] { "+", "*", "+", "-", "*", "+" }; // В основном безопасные
+            }
+            else
+            {
+                return new[] { "+", "-", "*", "/" }; // Все базовые операторы
+            }
         }
 
-        private string GenerateSafeOperator()
+        private string CreateSimpleValidExpression(int tokenCount)
         {
-            // Используем только базовые операторы, которые точно работают
-            string[] safeOperators = { "+", "-", "*" };
-            return safeOperators[_random.Next(safeOperators.Length)];
+            // Резервный метод: создаем максимально простое гарантированно рабочее выражение
+            if (tokenCount < 3) tokenCount = 3;
+
+            int operatorCount = (tokenCount - 1) / 2;
+            int numberCount = operatorCount + 1;
+
+            var tokens = new List<string>();
+
+            // Добавляем числа
+            for (int i = 0; i < numberCount; i++)
+            {
+                tokens.Add("2"); // Всегда используем 2 (безопасное число)
+            }
+
+            // Добавляем операторы (только сложение - самый безопасный)
+            for (int i = 0; i < operatorCount; i++)
+            {
+                tokens.Add("+");
+            }
+
+            return string.Join(" ", tokens);
         }
 
-        // Генерация операций для стека
+        private bool IsValidPostfixExpression(string expression)
+        {
+            try
+            {
+                // Быстрая проверка без полного вычисления
+                string[] tokens = expression.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+                // Быстрая проверка структуры
+                int numberCount = 0;
+                int operatorCount = 0;
+
+                foreach (string token in tokens)
+                {
+                    if (double.TryParse(token, out _))
+                        numberCount++;
+                    else
+                        operatorCount++;
+                }
+
+                // В корректной постфиксной записи: numbers = operators + 1
+                if (numberCount != operatorCount + 1)
+                {
+                    Console.WriteLine($"  ⚠️ Некорректная структура: {numberCount} чисел, {operatorCount} операторов");
+                    return false;
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public List<string> GenerateStackOperations(int operationCount)
         {
             var operations = new List<string>();
-
-            // Гарантируем, что стек не опустошается полностью
             int stackSize = 0;
 
             for (int i = 0; i < operationCount; i++)
             {
-                // Выбираем операцию в зависимости от текущего размера стека
-                int operationType;
+                // Вероятностное распределение с приоритетом Push
+                double rand = _random.NextDouble();
+                string operation;
 
-                if (stackSize == 0)
+                if (stackSize == 0 || rand < 0.6)
                 {
-                    // Если стек пуст, можно только Push
-                    operationType = 1;
+                    operation = $"1,{_random.Next(1, 100)}";
+                    stackSize++;
                 }
-                else if (stackSize < 3)
+                else if (rand < 0.8 && stackSize > 0)
                 {
-                    // Если стек маленький, чаще Push, реже другие операции
-                    operationType = _random.Next(1, 6) <= 3 ? 1 : _random.Next(2, 6);
+                    operation = "2";
+                    stackSize--;
+                }
+                else if (rand < 0.9 && stackSize > 0)
+                {
+                    operation = "3";
+                }
+                else if (rand < 0.95)
+                {
+                    operation = "4";
                 }
                 else
                 {
-                    // Если стек большой, более разнообразные операции
-                    operationType = _random.Next(1, 6);
+                    operation = "5";
                 }
 
-                switch (operationType)
-                {
-                    case 1: // Push
-                        operations.Add($"1,{GenerateStackValue()}");
-                        stackSize++;
-                        break;
-                    case 2: // Pop
-                        operations.Add("2");
-                        if (stackSize > 0) stackSize--;
-                        break;
-                    case 3: // Top
-                        operations.Add("3");
-                        break;
-                    case 4: // IsEmpty
-                        operations.Add("4");
-                        break;
-                    case 5: // Print
-                        operations.Add("5");
-                        break;
-                }
+                operations.Add(operation);
             }
 
             return operations;
-        }
-
-        private string GenerateStackValue()
-        {
-            if (_random.NextDouble() < 0.8)
-            {
-                return _random.Next(1, 100).ToString();
-            }
-            else
-            {
-                string[] words = { "cat", "dog", "test", "hello", "world" };
-                return words[_random.Next(words.Length)];
-            }
         }
     }
 }

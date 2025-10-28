@@ -5,15 +5,8 @@ using Lab3.Services;
 
 namespace Lab3.PerformanceTesting
 {
-    public class PerformanceMeasurement
-    {
-        public int InputSize { get; set; }
-        public double ExecutionTimeMs { get; set; }
-        public string AlgorithmType { get; set; } = string.Empty;
-    }
     public class PerformanceMeasurer
     {
-
         private readonly PostfixCalculator _calculator;
         private readonly StackOperationService _stackService;
         private readonly TestDataGenerator _generator;
@@ -28,12 +21,12 @@ namespace Lab3.PerformanceTesting
         public List<PerformanceMeasurement> MeasurePostfixEvaluationPerformance()
         {
             var measurements = new List<PerformanceMeasurement>();
-            int maxSize = 10000;
-            int step = 100;
-           
-            int expressionsPerSize = 1;
 
-            for(int size = 0; size < maxSize;size+=step)
+            int expressionsPerSize = 5;
+            int max = 300000;
+            int step = 100;
+
+            for(int size=1; size < max;size+=step)
             {
                 Console.WriteLine($"\n--- Тестирование размера {size} ---");
                 var expressions = _generator.GeneratePostfixExpressions(size, size, 1, expressionsPerSize);
@@ -44,17 +37,23 @@ namespace Lab3.PerformanceTesting
                 {
                     try
                     {
+                        // Показываем выражение для отладки
+                        if (successfulExpressions == 0)
+                        {
+                            Console.WriteLine($"  Выражение: {expression}");
+                        }
+
                         double time = MeasurePostfixEvaluationTime(expression);
                         if (time > 0)
                         {
                             totalTime += time;
                             successfulExpressions++;
-                            Console.WriteLine($"  Успешно: {time:F4}мс");
+                            Console.WriteLine($"  ✅ Успешно: {time:F6}мс");
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"  Ошибка вычисления: {ex.Message}");
+                        Console.WriteLine($"  ❌ Ошибка вычисления: {ex.Message}");
                     }
                 }
 
@@ -67,16 +66,15 @@ namespace Lab3.PerformanceTesting
                         ExecutionTimeMs = averageTime,
                         AlgorithmType = "Postfix Evaluation"
                     });
-
-                    Console.WriteLine($"Среднее время: {averageTime:F4}мс");
+                    Console.WriteLine($"📊 Среднее время: {averageTime:F6}мс (успешных: {successfulExpressions})");
                 }
                 else
                 {
-                    Console.WriteLine($"Нет успешных измерений для размера {size}");
+                    Console.WriteLine($"⚠️ Нет успешных измерений для размера {size}");
                 }
             }
 
-            Console.WriteLine($"\nВсего собрано измерений: {measurements.Count}");
+            Console.WriteLine($"\n📊 ИТОГО: Собрано измерений постфиксных вычислений: {measurements.Count}");
             return measurements;
         }
 
@@ -84,15 +82,13 @@ namespace Lab3.PerformanceTesting
         {
             var measurements = new List<PerformanceMeasurement>();
 
-            int[] operationCounts = { 10, 20, 30, 40, 50 };
-            int max = 1000;
-            int step = 10;
+            int[] operationCounts = { 10, 20, 50, 100, 200, 500, 1000, 1500, 2000, 3000, 4000, 5000 };
 
-            for(int count=1; count<max; count+=step)
+            foreach (int count in operationCounts)
             {
                 Console.WriteLine($"\n--- Тестирование {count} операций ---");
                 double totalTime = 0;
-                int repetitions = 2;
+                int repetitions = 5;
                 int successfulRuns = 0;
 
                 for (int i = 0; i < repetitions; i++)
@@ -103,11 +99,11 @@ namespace Lab3.PerformanceTesting
                         double time = MeasureStackOperationsTime(operations);
                         totalTime += time;
                         successfulRuns++;
-                        Console.WriteLine($"  Попытка {i + 1}: {time:F4}мс");
+                        Console.WriteLine($"  ✅ Попытка {i + 1}: {time:F4}мс");
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"  Ошибка выполнения операций: {ex.Message}");
+                        Console.WriteLine($"  ❌ Попытка {i + 1}: {ex.Message}");
                     }
                 }
 
@@ -120,11 +116,11 @@ namespace Lab3.PerformanceTesting
                         ExecutionTimeMs = averageTime,
                         AlgorithmType = "Stack Operations"
                     });
-
-                    Console.WriteLine($"Среднее время: {averageTime:F4}мс");
+                    Console.WriteLine($"📊 Среднее время: {averageTime:F4}мс");
                 }
             }
 
+            Console.WriteLine($"\n📊 ИТОГО: Собрано измерений операций стека: {measurements.Count}");
             return measurements;
         }
 
@@ -134,21 +130,44 @@ namespace Lab3.PerformanceTesting
 
             try
             {
-                // Выполняем несколько раз для более точного измерения
-                int repetitions = Math.Max(1, 100 / (expression.Length + 1));
+                // АДАПТИВНЫЕ ПОВТОРЕНИЯ ДЛЯ БОЛЬШИХ ВЫРАЖЕНИЙ
+                int repetitions = CalculateRepetitions(expression.Length);
+
                 for (int i = 0; i < repetitions; i++)
                 {
                     _calculator.Evaluate(expression);
                 }
+
+                stopwatch.Stop();
+                double timePerIteration = stopwatch.Elapsed.TotalMilliseconds / repetitions;
+
+                // Для очень больших выражений логируем информацию
+                if (expression.Length > 1000)
+                {
+                    Console.WriteLine($"  📏 Длина: {expression.Length} токенов, повторений: {repetitions}, время: {timePerIteration:F6}мс");
+                }
+
+                return timePerIteration;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка при вычислении выражения: {ex.Message}");
-                return 0;
+                stopwatch.Stop();
+                throw new InvalidOperationException($"Ошибка вычисления (длина: {expression.Length}): {ex.Message}");
             }
+        }
 
-            stopwatch.Stop();
-            return stopwatch.Elapsed.TotalMilliseconds;
+
+        private int CalculateRepetitions(int expressionLength)
+        {
+            // АДАПТИВНАЯ ЛОГИКА ДЛЯ БОЛЬШИХ ВЫРАЖЕНИЙ
+            if (expressionLength <= 10) return 10000;
+            if (expressionLength <= 50) return 5000;
+            if (expressionLength <= 100) return 1000;
+            if (expressionLength <= 500) return 100;
+            if (expressionLength <= 1000) return 10;
+            if (expressionLength <= 5000) return 5;
+            if (expressionLength <= 10000) return 2;
+            return 1; // Для очень больших выражений - 1 повторение
         }
 
         private double MeasureStackOperationsTime(List<string> operations)
@@ -162,10 +181,6 @@ namespace Lab3.PerformanceTesting
             {
                 _stackService.ProcessOperationsFromFile(tempFile);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при выполнении операций стека: {ex.Message}");
-            }
             finally
             {
                 System.IO.File.Delete(tempFile);
@@ -174,5 +189,12 @@ namespace Lab3.PerformanceTesting
             stopwatch.Stop();
             return stopwatch.Elapsed.TotalMilliseconds;
         }
+    }
+
+    public class PerformanceMeasurement
+    {
+        public int InputSize { get; set; }
+        public double ExecutionTimeMs { get; set; }
+        public string AlgorithmType { get; set; } = string.Empty;
     }
 }

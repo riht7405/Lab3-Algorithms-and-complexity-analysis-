@@ -1,14 +1,15 @@
-﻿using Lab3.Models;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Lab3.Structures
 {
     public class Stack<T>
     {
-        private readonly Models.LinkedList<T> _list;
+        private readonly LinkedList<T> _list;
 
         public Stack()
         {
-            _list = new Models.LinkedList<T>();
+            _list = new LinkedList<T>();
         }
 
         public void Push(T element)
@@ -18,11 +19,15 @@ namespace Lab3.Structures
 
         public T Pop()
         {
+            if (IsEmpty())
+                throw new InvalidOperationException("Стек пуст");
             return _list.PopFront();
         }
 
         public T Top()
         {
+            if (IsEmpty())
+                throw new InvalidOperationException("Стек пуст");
             return _list.Front();
         }
 
@@ -36,14 +41,6 @@ namespace Lab3.Structures
             _list.Print();
         }
 
-        // Для тестирования и отладки
-        public int Count
-        {
-            get
-            {
-                var elements = _list.ToList();
-                return elements.Count;
-            }
-        }
+        public int Count => _list.Count;
     }
 }

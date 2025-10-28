@@ -37,7 +37,7 @@ namespace Lab3.Services
             }
 
             stopwatch.Stop();
-            Console.WriteLine($"\nВремя выполнения всех операций: {stopwatch.Elapsed.TotalMilliseconds:F4} мс");
+            Console.WriteLine($"\nОбщее время выполнения: {stopwatch.Elapsed.TotalMilliseconds:F4} мс");
         }
 
         private void ProcessSingleOperation(string operation)
@@ -85,33 +85,19 @@ namespace Lab3.Services
             string valueStr = operation.Substring(2);
             object value = ParseValue(valueStr);
             _stack.Push(value);
-            Console.WriteLine($"Push: {value} ({value.GetType().Name})");
+            Console.WriteLine($"Push: {value}");
         }
 
         private void ExecutePop()
         {
-            try
-            {
-                object result = _stack.Pop();
-                Console.WriteLine($"Pop: {result}");
-            }
-            catch (InvalidOperationException)
-            {
-                Console.WriteLine("Pop: Стек пуст");
-            }
+            object result = _stack.Pop();
+            Console.WriteLine($"Pop: {result}");
         }
 
         private void ExecuteTop()
         {
-            try
-            {
-                object result = _stack.Top();
-                Console.WriteLine($"Top: {result}");
-            }
-            catch (InvalidOperationException)
-            {
-                Console.WriteLine("Top: Стек пуст");
-            }
+            object result = _stack.Top();
+            Console.WriteLine($"Top: {result}");
         }
 
         private void ExecuteIsEmpty()
@@ -128,12 +114,11 @@ namespace Lab3.Services
 
         private object ParseValue(string valueStr)
         {
-            // Пробуем разные форматы чисел
             if (int.TryParse(valueStr, NumberStyles.Any, CultureInfo.InvariantCulture, out int intValue))
                 return intValue;
             if (double.TryParse(valueStr, NumberStyles.Any, CultureInfo.InvariantCulture, out double doubleValue))
                 return doubleValue;
-            return valueStr; // Если не число, возвращаем как строку
+            return valueStr;
         }
     }
 }

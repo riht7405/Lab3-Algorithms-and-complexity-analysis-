@@ -1,8 +1,8 @@
 ﻿using System;
+using System.Diagnostics;
+using Lab3.Services;
 using Lab3.PerformanceTesting;
 using Lab3.Visualization;
-using Lab3.Services;
-using System.Diagnostics;
 
 namespace Lab3
 {
@@ -12,44 +12,49 @@ namespace Lab3
         {
             try
             {
-                Console.WriteLine("=== ТЕСТИРОВАНИЕ ПРОИЗВОДИТЕЛЬНОСТИ И АНАЛИЗ СЛОЖНОСТИ ===");
+                Console.WriteLine("=== АНАЛИЗ ВРЕМЕННОЙ СЛОЖНОСТИ ПОСТФИКСНЫХ ВЫЧИСЛЕНИЙ ===");
 
                 var overallStopwatch = Stopwatch.StartNew();
 
-                // Сначала протестируем базовую функциональность
+                // Тестирование базовой функциональности
                 Console.WriteLine("\n--- Тестирование базовой функциональности ---");
                 TestBasicFunctionality();
 
                 // Тестирование производительности
+                Console.WriteLine("\n--- Тестирование производительности ---");
                 var measurer = new PerformanceMeasurer();
 
-                Console.WriteLine("\n--- Тестирование постфиксных вычислений ---");
+                Console.WriteLine("\n=== ИЗМЕРЕНИЕ ПОСТФИКСНЫХ ВЫЧИСЛЕНИЙ ===");
                 var postfixMeasurements = measurer.MeasurePostfixEvaluationPerformance();
 
-                Console.WriteLine("\n--- Тестирование операций со стеком ---");
+                Console.WriteLine("\n=== ИЗМЕРЕНИЕ ОПЕРАЦИЙ СО СТЕКОМ ===");
                 var stackMeasurements = measurer.MeasureStackOperationsPerformance();
 
                 overallStopwatch.Stop();
-                Console.WriteLine($"\nОбщее время выполнения: {overallStopwatch.Elapsed.TotalMinutes:F2} минут");
+                Console.WriteLine($"\n⏱️ Общее время тестирования: {overallStopwatch.Elapsed.TotalSeconds:F2} секунд");
 
-                // Создание отчета с графиками
-                if (postfixMeasurements.Count >= 2 || stackMeasurements.Count >= 2)
+                // Создание отчетов с графиками
+                if (postfixMeasurements.Count >= 3 && stackMeasurements.Count >= 3)
                 {
-                    Console.WriteLine("\n--- Создание отчетов и графиков ---");
+                    Console.WriteLine("\n=== СОЗДАНИЕ ОТЧЕТОВ И ГРАФИКОВ ===");
                     var plotter = new GraphPlotter();
                     plotter.CreateComplexityReport(postfixMeasurements, stackMeasurements);
+                    Console.WriteLine("✅ Отчеты успешно созданы в папке PerformanceResults/");
                 }
                 else
                 {
-                    Console.WriteLine("\nНедостаточно данных для создания графиков");
+                    Console.WriteLine("\n⚠️ Недостаточно данных для создания графиков");
+                    Console.WriteLine($"   Постфиксные измерения: {postfixMeasurements.Count} (нужно >= 3)");
+                    Console.WriteLine($"   Измерения стека: {stackMeasurements.Count} (нужно >= 3)");
                 }
 
-                // Демонстрация работы стека и вычислений
+                // Демонстрация работы
+                Console.WriteLine("\n--- Демонстрация основного функционала ---");
                 DemonstrateOriginalFunctionality();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Критическая ошибка в приложении: {ex.Message}");
+                Console.WriteLine($"❌ Критическая ошибка: {ex.Message}");
                 Console.WriteLine($"Стек вызовов: {ex.StackTrace}");
             }
 
@@ -63,24 +68,25 @@ namespace Lab3
             {
                 var calculator = new PostfixCalculator();
 
-                // Простые тестовые выражения
                 string[] testExpressions = {
-            "3 4 +",
-            "5 2 * 3 +",
-            "10 5 - 2 *",
-            "15 3 / 2 +"
-        };
+                    "3 4 +",           // 7
+                    "5 2 * 3 +",       // 13
+                    "10 5 - 2 *",      // 10
+                    "15 3 / 2 +",      // 7
+                    "2 3 4 * +",       // 14
+                    "7 8 + 3 2 + /"    // 3
+                };
 
                 foreach (string expr in testExpressions)
                 {
                     try
                     {
                         double result = calculator.Evaluate(expr);
-                        Console.WriteLine($"  {expr} = {result}");
+                        Console.WriteLine($"  ✅ {expr} = {result}");
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"  Ошибка в '{expr}': {ex.Message}");
+                        Console.WriteLine($"  ❌ Ошибка в '{expr}': {ex.Message}");
                     }
                 }
             }
@@ -92,27 +98,27 @@ namespace Lab3
 
         static void DemonstrateOriginalFunctionality()
         {
-            Console.WriteLine("\n--- Демонстрация основного функционала ---");
-
             try
             {
                 var stackService = new StackOperationService();
-                if (System.IO.File.Exists("input.txt"))
-                {
-                    stackService.ProcessOperationsFromFile("input.txt");
-                }
-                else
-                {
-                    Console.WriteLine("Файл input.txt не найден. Создаем тестовые данные...");
-                    // Создаем простой тестовый файл
-                    System.IO.File.WriteAllText("input.txt", "1,10 1,20 3 2 5 4");
-                    stackService.ProcessOperationsFromFile("input.txt");
-                }
+
+                // Создаем тестовый файл
+                System.IO.File.WriteAllText("input.txt", "1,10 1,20 3 2 5 4");
+                Console.WriteLine("Создан тестовый файл input.txt");
+
+                stackService.ProcessOperationsFromFile("input.txt");
+
+                // Демонстрация конвертации инфиксной записи
+                Console.WriteLine("\n--- Конвертация инфиксной записи ---");
+                var converter = new InfixToPostfixConverter();
+                string infixExpr = "( 2 + 3 ) * 5";
+                string postfixExpr = converter.Convert(infixExpr);
+                Console.WriteLine($"  Инфиксная: {infixExpr}");
+                Console.WriteLine($"  Постфиксная: {postfixExpr}");
 
                 var calculator = new PostfixCalculator();
-                string postfixExpr = "7 8 + 3 2 + /";
                 double result = calculator.Evaluate(postfixExpr);
-                Console.WriteLine($"\nПример вычисления: {postfixExpr} = {result:F4}");
+                Console.WriteLine($"  Результат: {result}");
             }
             catch (Exception ex)
             {
