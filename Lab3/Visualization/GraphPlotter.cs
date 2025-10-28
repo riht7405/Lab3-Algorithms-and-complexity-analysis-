@@ -11,6 +11,21 @@ namespace Lab3.Visualization
             string title,
             string outputPath)
         {
+            // Фильтруем нулевые и отрицательные значения
+            var validExperimentalData = experimentalData
+                .Where(m => m.ExecutionTimeMs > 0.001)
+                .ToList();
+
+            var validTheoreticalData = theoreticalData
+                .Where(m => m.ExecutionTimeMs > 0.001)
+                .ToList();
+
+            if (validExperimentalData.Count == 0 || validTheoreticalData.Count == 0)
+            {
+                Console.WriteLine($"Недостаточно данных для построения графика: {title}");
+                return;
+            }
+
             var plt = new Plot(1200, 800);
 
             // Подготовка данных

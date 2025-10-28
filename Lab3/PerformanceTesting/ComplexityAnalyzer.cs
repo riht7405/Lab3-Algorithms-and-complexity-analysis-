@@ -72,22 +72,47 @@ namespace Lab3.PerformanceTesting
 
         private (double A, double B, double C, double RSquared) CalculateQuadraticRegression(double[] x, double[] y)
         {
-            // Упрощенная реализация квадратичной регрессии
             int n = x.Length;
-            double sumX = x.Sum();
-            double sumX2 = x.Sum(a => a * a);
-            double sumX3 = x.Sum(a => a * a * a);
-            double sumX4 = x.Sum(a => a * a * a * a);
-            double sumY = y.Sum();
-            double sumXY = x.Zip(y, (a, b) => a * b).Sum();
-            double sumX2Y = x.Zip(y, (a, b) => a * a * b).Sum();
 
-            // Решаем систему уравнений для квадратичной регрессии
-            // Упрощенный подход - в реальном проекте лучше использовать матрицы
+            // Создаем матрицу для системы уравнений
+            double[,] matrix = new double[3, 4];
 
-            // Для простоты вернем приближенные значения
-            var linear = CalculateLinearRegression(x, y);
-            return (linear.Slope / 1000, linear.Slope, linear.Intercept, linear.RSquared * 0.9);
+            // Заполняем матрицу
+            for (int i = 0; i < n; i++)
+            {
+                double xi = x[i];
+                double xi2 = xi * xi;
+                double xi3 = xi2 * xi;
+                double xi4 = xi3 * xi;
+
+                matrix[0, 0] += xi4;
+                matrix[0, 1] += xi3;
+                matrix[0, 2] += xi2;
+                matrix[0, 3] += xi2 * y[i];
+
+                matrix[1, 0] += xi3;
+                matrix[1, 1] += xi2;
+                matrix[1, 2] += xi;
+                matrix[1, 3] += xi * y[i];
+
+                matrix[2, 0] += xi2;
+                matrix[2, 1] += xi;
+                matrix[2, 2] += 1;
+                matrix[2, 3] += y[i];
+            }
+
+            // Решаем систему методом Гаусса (упрощенно)
+            double A = matrix[0, 3] / matrix[0, 0];
+            double B = (matrix[1, 3] - matrix[1, 0] * A) / matrix[1, 1];
+            double C = (matrix[2, 3] - matrix[2, 0] * A - matrix[2, 1] * B) / matrix[2, 2];
+
+            // Вычисляем R²
+            double yMean = y.Average();
+            double ssTot = y.Sum(val => Math.Pow(val - yMean, 2));
+            double ssRes = x.Zip(y, (xi, yi) => Math.Pow(yi - (A * xi * xi + B * xi + C), 2)).Sum();
+            double rSquared = 1 - (ssRes / ssTot);
+
+            return (A, B, C, rSquared);
         }
 
         private (double Slope, double Intercept, double RSquared) CalculateLogarithmicRegression(double[] x, double[] y)

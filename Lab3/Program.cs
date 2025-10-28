@@ -2,9 +2,7 @@
 using Lab3.PerformanceTesting;
 using Lab3.Visualization;
 using Lab3.Services;
-using Lab3.PerformanceTesting;
-using Lab3.Services;
-using Lab3.Visualization;
+using System.Diagnostics;
 
 namespace Lab3
 {
@@ -16,6 +14,12 @@ namespace Lab3
             {
                 Console.WriteLine("=== ТЕСТИРОВАНИЕ ПРОИЗВОДИТЕЛЬНОСТИ И АНАЛИЗ СЛОЖНОСТИ ===");
 
+                var overallStopwatch = Stopwatch.StartNew();
+
+                // Сначала протестируем базовую функциональность
+                Console.WriteLine("\n--- Тестирование базовой функциональности ---");
+                TestBasicFunctionality();
+
                 // Тестирование производительности
                 var measurer = new PerformanceMeasurer();
 
@@ -25,10 +29,20 @@ namespace Lab3
                 Console.WriteLine("\n--- Тестирование операций со стеком ---");
                 var stackMeasurements = measurer.MeasureStackOperationsPerformance();
 
+                overallStopwatch.Stop();
+                Console.WriteLine($"\nОбщее время выполнения: {overallStopwatch.Elapsed.TotalMinutes:F2} минут");
+
                 // Создание отчета с графиками
-                Console.WriteLine("\n--- Создание отчетов и графиков ---");
-                var plotter = new GraphPlotter();
-                plotter.CreateComplexityReport(postfixMeasurements, stackMeasurements);
+                if (postfixMeasurements.Count >= 2 || stackMeasurements.Count >= 2)
+                {
+                    Console.WriteLine("\n--- Создание отчетов и графиков ---");
+                    var plotter = new GraphPlotter();
+                    plotter.CreateComplexityReport(postfixMeasurements, stackMeasurements);
+                }
+                else
+                {
+                    Console.WriteLine("\nНедостаточно данных для создания графиков");
+                }
 
                 // Демонстрация работы стека и вычислений
                 DemonstrateOriginalFunctionality();
@@ -41,6 +55,39 @@ namespace Lab3
 
             Console.WriteLine("\nНажмите любую клавишу для выхода...");
             Console.ReadKey();
+        }
+
+        static void TestBasicFunctionality()
+        {
+            try
+            {
+                var calculator = new PostfixCalculator();
+
+                // Простые тестовые выражения
+                string[] testExpressions = {
+            "3 4 +",
+            "5 2 * 3 +",
+            "10 5 - 2 *",
+            "15 3 / 2 +"
+        };
+
+                foreach (string expr in testExpressions)
+                {
+                    try
+                    {
+                        double result = calculator.Evaluate(expr);
+                        Console.WriteLine($"  {expr} = {result}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"  Ошибка в '{expr}': {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка тестирования: {ex.Message}");
+            }
         }
 
         static void DemonstrateOriginalFunctionality()
